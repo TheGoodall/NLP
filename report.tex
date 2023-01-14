@@ -1,0 +1,94 @@
+\documentclass{article}
+
+\title{Natural Language Processing}
+\author{xfdg93}
+\date{}
+
+\usepackage{parskip}
+\usepackage[margin=0.5in]{geometry}
+
+\begin{document}
+\maketitle
+
+\section{Feature extraction}
+		Feature extraction converts each document into a vector, which can be used to compare between documents.
+	\subsection{TF-IDF}
+		TF-IDF achieves this by calculating an inverse document frequency for each token that appears in it's corpus, e.g. the log of the inverse of the fraction of documents the token appears in.
+		The vector for a given document is made up of the count of each token in the document, multiplied by the inverse document frequency for that token, multiplied by a one-hot vector for the id of the token.
+		This means words that are rarer in the corpus, and/or more widely used in the document, will have a larger effect on it's vector.
+
+		It has the advantages of that it is very simple to implement, and that it can be quickly calculated for a document, even without a GPU.
+		It can also be easily used to compare documents, e.g. with cosine similarity.
+		
+		Unfortunately, it has the disadvantages of resulting in a huge vector, e.g. thousands or tens of thousands of dimensions, depending on the number of tokens in the corpus.
+		This can mean that it can take a large amount of memory to store a large set of documents in this form, when sparse vectors are not available, e.g. when GPUs are being used.
+		Additionally, it is incapable of storing word order, and merely adopts a bag-of-words approach. This means that potentially critical context is lost, which puts an upper bound on it's accuracy for many tasks.
+
+	\subsection{Transformer}
+		Transformers work by using a deep learning network to generate a vector representing the document.
+		This representation is capable of representing many things about the context of the document, including word order, which TF-IDF is incapable of.
+
+		The method I chose is BERT (Bidirectional Encoder Representations from Transformers),
+		which is both trained on masked language modelling (i.e. predicting a single masked word from a sentence) and next sentence prediction.
+
+		This produces a vector that can then be fed into another network and used to complete any other NLP task.
+		The advantages of this method are that the vector produced contains significantly more information about the context of the document that a bag-of-words model.
+		Pre-trained models of BERT are available, which means extremely powerful feature extraction is available easily.
+		Unfortunately, because the output of BERT is a hidden layer from a neural network, it can be difficult to process easily using non-deep-learning techniques.
+		For example, while TF-IDF can be easily compared using cosine similarity, no such easy comparison exists for BERT vectors, which must be compared using machine or deep learning techniques.
+
+
+\section{Two Steps Classification}
+
+	\subsection{Related/Unrelated}
+
+		\subsubsection{Standard Machine Learning}
+			Random forest was used.
+			Because of hugely unbalanced training data, baseline comparison is a model which always chooses unrelated, which would score 73.1\%
+
+			TF-IDF Classification scored: 81.2\%
+
+			Transformer Classification scored: 74.7\%
+
+			Transformer classification is closer to baseline as it is significantly more complex to classify data summarized with a transformer, and thus a model with more parameters, e.g. a deep learning model is needed.
+
+		\subsubsection{Deep Learning}
+
+			My Deep learning method used a similar architecture for both TF-IDF and transformer based training.
+			Both used 4 linear layers, with progressively smaller sizes, which is because the network is compressing informations down from a large potentially 58300 size vector in the case of TD-IDF, down to a single value representing whether the two are related or not.
+			The Initial vector is the concatenation of the vector representing the headline and the vector representing the body.
+			The loss function is Binary Cross Entropy, which is used to train the network to return the probability that the two vectors are related.
+
+			The network achieves 58.15\% when trained on TF-IDF vectors and 70.98\% when trained on BERT vectors.
+			Unfortunately, neither of these meet the 73.1\% baseline, and are therefore worse than a model that only guesses one answer.
+			This is likely because neither models were carefully tuned and trained for a large amount of time on a large dataset. With further training it is possible these models could perform better.
+
+		\subsubsection{Analysis}
+			Overall, standard machine learning models outperformed both deep learning models, and the baseline.
+			This is likely due to a lack of training time available for the deep learning models.
+			
+			The best performing model was Random forest operating on TF-IDF vectors.
+
+	\subsection{Agree/Disagree/Discuss}
+
+		The Agree/Disagre/Discuss model used similar parameters to the other deep learning models.
+		However, in order to allow the model to classify between 3 values, the model was changed to outputting a size 3 vector, which represented the probabilities of each of the 3 states respectively.
+
+		This model was able to achieve 80.4\%
+	\subsection{End-to-End}
+
+		End to end performance was 79.2\%
+
+		A naive estimation of end to end performance, taking into account the 81.2\% and 80.4\% performance of the two models used would result in a estimate of 65.3\%.
+		However the actually performance wasn't significantly lower than either of the two models.
+		I would hypothesise that this is likely because the performance of each model on any given article is not independent of each other, that is, if one model finds an article hard to identify, then it is likely that the second network would also find it hard to identify.
+
+\section{Ethics}
+	Because my solutions use neural networks, without any debiasing techniques applied, certain bias's may be carried over from the training data.
+	For example, it is possible that my network may discover that more articles involving women are fake, compared to men. 
+	This would mean that my solution would disproportionally flag articles containing women as fake, which could negatively impact the experiences of women.
+	
+	Additionally, any network that can successfully determine with any degree of accuracy whether an article is fake news or not, will inevitably be used as a discriminator to train generators of fake news that are better at evading detection. This means that any advances in detecting fake news, will inevitably result in more fake news that is more difficult to detect.
+
+
+\end{document}
